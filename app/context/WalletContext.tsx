@@ -19,6 +19,7 @@ export interface Asset {
   location: string
   size: string
   price?: number
+  value?: number
   listed: boolean
   owner: string
   creator: string
@@ -37,6 +38,8 @@ interface WalletContextType {
   createAsset: (asset: Omit<Asset, 'id' | 'creator' | 'owner' | 'createdAt'>) => Promise<void>
   listAssetForSale: (id: number, price: number) => Promise<void>
   buyAsset: (id: number, price: number) => Promise<void>
+  getAssetById: (id: number) => Asset | undefined
+  unlistAsset: (id: number) => Promise<void>
 }
 
 const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
@@ -52,6 +55,7 @@ export const DUMMY_ASSETS: Asset[] = [
     location: "Downtown Business District",
     size: "50,000 sq ft",
     price: 0.001,
+    value: 0.001,
     listed: true,
     owner: "0x0000000000000000000000000000000000000000",
     creator: "0x0000000000000000000000000000000000000000",
@@ -66,6 +70,7 @@ export const DUMMY_ASSETS: Asset[] = [
     location: "Coastal District",
     size: "2.5 acres",
     price: 0.002,
+    value: 0.002,
     listed: true,
     owner: "0x0000000000000000000000000000000000000000",
     creator: "0x0000000000000000000000000000000000000000",
@@ -80,6 +85,7 @@ export const DUMMY_ASSETS: Asset[] = [
     location: "Industrial Park",
     size: "75,000 sq ft",
     price: 0.0015,
+    value: 0.0015,
     listed: true,
     owner: "0x0000000000000000000000000000000000000000",
     creator: "0x0000000000000000000000000000000000000000",
@@ -94,6 +100,7 @@ export const DUMMY_ASSETS: Asset[] = [
     location: "Suburban District",
     size: "1.8 acres",
     price: 0.0008,
+    value: 0.0008,
     listed: true,
     owner: "0x0000000000000000000000000000000000000000",
     creator: "0x0000000000000000000000000000000000000000",
@@ -108,6 +115,7 @@ export const DUMMY_ASSETS: Asset[] = [
     location: "Shopping District",
     size: "15,000 sq ft",
     price: 0.0025,
+    value: 0.0025,
     listed: true,
     owner: "0x0000000000000000000000000000000000000000",
     creator: "0x0000000000000000000000000000000000000000",
@@ -321,7 +329,8 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
           ...boughtAsset,
           owner: walletAddress,
           listed: false,
-          price: price
+          price: price,
+          value: price
         }
 
         // Add to MongoDB
@@ -348,6 +357,36 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }
 
+  const getAssetById = (id: number) => {
+    return userAssets.find(asset => asset.id === id) || 
+           DUMMY_ASSETS.find(asset => asset.id === id)
+  }
+
+  const unlistAsset = async (id: number): Promise<void> => {
+    if (!contract || !walletAddress) {
+      throw new Error('Wallet not connected')
+    }
+
+    try {
+      const tx = await contract.unlistAsset(id, {
+        gasLimit: 500000
+      })
+      await tx.wait()
+
+      // Update local state
+      setUserAssets(prevAssets => 
+        prevAssets.map(asset => 
+          asset.id === id 
+            ? { ...asset, listed: false, price: undefined } 
+            : asset
+        )
+      )
+    } catch (error: any) {
+      console.error('Error unlisting asset:', error)
+      throw new Error('Failed to unlist asset: ' + (error.message || 'Unknown error'))
+    }
+  }
+
   return (
     <WalletContext.Provider value={{
       isConnected,
@@ -359,7 +398,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       contract,
       createAsset,
       listAssetForSale,
-      buyAsset
+      buyAsset,
+      getAssetById,
+      unlistAsset
     }}>
       {children}
     </WalletContext.Provider>

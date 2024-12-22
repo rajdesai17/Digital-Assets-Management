@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useWallet } from '@/app/context/WalletContext'
+import type { Asset } from '@/app/context/WalletContext'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,8 +12,8 @@ import { DollarSign, Tag, Clock, User, Briefcase, ArrowLeft } from 'lucide-react
 import { useToast } from "@/hooks/use-toast"
 
 export default function AssetDetails({ params }: { params: { id: string } }) {
-  const { getAssetById, listAssetForSale, unlistAsset, isConnected } = useWallet()
-  const [asset, setAsset] = useState<any>(null)
+  const { getAssetById, unlistAsset, listAssetForSale, isConnected } = useWallet()
+  const [asset, setAsset] = useState<Asset | null>(null)
   const [price, setPrice] = useState('')
   const router = useRouter()
   const { toast } = useToast()
@@ -32,6 +33,24 @@ export default function AssetDetails({ params }: { params: { id: string } }) {
     }
   }, [isConnected, params.id, getAssetById, router])
 
+  const handleUnlist = async () => {
+    if (!asset) return
+    try {
+      await unlistAsset(asset.id)
+      toast({
+        title: "Asset Unlisted",
+        description: "Your asset has been removed from the marketplace.",
+      })
+      router.push('/profile')
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to unlist asset",
+        variant: "destructive",
+      })
+    }
+  }
+
   if (!asset) return null
 
   const handleListForSale = () => {
@@ -50,15 +69,6 @@ export default function AssetDetails({ params }: { params: { id: string } }) {
       description: "Your IP asset has been listed for sale in the marketplace.",
     })
     setAsset({ ...asset, listed: true, price: numPrice })
-  }
-
-  const handleUnlist = () => {
-    unlistAsset(asset.id)
-    toast({
-      title: "Asset Unlisted",
-      description: "Your IP asset has been removed from the marketplace.",
-    })
-    setAsset({ ...asset, listed: false, price: undefined })
   }
 
   return (

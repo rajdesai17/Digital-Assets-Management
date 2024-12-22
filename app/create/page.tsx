@@ -24,7 +24,9 @@ export default function CreateAsset() {
     try {
       await createAsset({
         ...formData,
-        price: parseFloat(formData.value)
+        price: parseFloat(formData.value),
+        value: parseFloat(formData.value),
+        type: 'building' as const
       })
       router.push('/profile')
     } catch (error) {
