@@ -1,4 +1,4 @@
-![image](https://github.com/user-attachments/assets/353876e5-f16e-4894-b47e-5c0ce3b48a00)# BLCassets - Blockchain Real Estate Asset Management Platform
+# BLCassets - Blockchain Real Estate Asset Management Platform
 
 A decentralized platform for tokenizing and trading real estate assets on the Polygon Amoy testnet. This platform enables users to create, list, and trade real estate assets as digital tokens with blockchain-backed ownership verification.
 
