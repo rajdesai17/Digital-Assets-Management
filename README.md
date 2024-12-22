@@ -1,4 +1,4 @@
-# BLCassets - Blockchain Real Estate Asset Management Platform
+![image](https://github.com/user-attachments/assets/353876e5-f16e-4894-b47e-5c0ce3b48a00)# BLCassets - Blockchain Real Estate Asset Management Platform
 
 A decentralized platform for tokenizing and trading real estate assets on the Polygon Amoy testnet. This platform enables users to create, list, and trade real estate assets as digital tokens with blockchain-backed ownership verification.
 
@@ -27,6 +27,17 @@ A decentralized platform for tokenizing and trading real estate assets on the Po
 - Contract Address: `0xeD29F0874fF49Fb2160CA1602321e948812CD394`
 - Automated ownership transfer
 - Secure payment handling
+
+SmartContract -
+![Screenshot 2024-12-22 100314](https://github.com/user-attachments/assets/a0c0f404-52e3-4ff5-93fd-8e011d8713bc)
+ 
+Snapshots - 
+![image](https://github.com/user-attachments/assets/4a9fe3b4-d06e-462f-a620-94115a8a7f93)
+![image](https://github.com/user-attachments/assets/8713bb95-994e-4f7b-888e-2632aa501f0a)
+![image](https://github.com/user-attachments/assets/db6f5a08-f7bd-41d8-b96e-185915220d82)
+![image](https://github.com/user-attachments/assets/89b0a47e-ca58-4e21-bb84-28397c3d6421)
+![Screenshot 2024-12-22 100314](https://github.com/user-attachments/assets/a0c0f404-52e3-4ff5-93fd-8e011d8713bc)
+
 
 ## Technical Stack
 
