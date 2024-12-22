@@ -28,10 +28,10 @@ A decentralized platform for tokenizing and trading real estate assets on the Po
 - Automated ownership transfer
 - Secure payment handling
 
-SmartContract -
+# SmartContract -
 ![Screenshot 2024-12-22 100314](https://github.com/user-attachments/assets/a0c0f404-52e3-4ff5-93fd-8e011d8713bc)
  
-Snapshots - 
+# Snapshots - 
 ![image](https://github.com/user-attachments/assets/4a9fe3b4-d06e-462f-a620-94115a8a7f93)
 ![image](https://github.com/user-attachments/assets/8713bb95-994e-4f7b-888e-2632aa501f0a)
 ![image](https://github.com/user-attachments/assets/db6f5a08-f7bd-41d8-b96e-185915220d82)
