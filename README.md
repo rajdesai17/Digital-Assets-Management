@@ -36,7 +36,7 @@ A decentralized platform for tokenizing and trading real estate assets on the Po
 ![image](https://github.com/user-attachments/assets/8713bb95-994e-4f7b-888e-2632aa501f0a)
 ![image](https://github.com/user-attachments/assets/db6f5a08-f7bd-41d8-b96e-185915220d82)
 ![image](https://github.com/user-attachments/assets/89b0a47e-ca58-4e21-bb84-28397c3d6421)
-![Screenshot 2024-12-22 100314](https://github.com/user-attachments/assets/a0c0f404-52e3-4ff5-93fd-8e011d8713bc)
+
 
 
 ## Technical Stack
