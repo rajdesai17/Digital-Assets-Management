@@ -2,144 +2,120 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, Upload, DollarSign } from 'lucide-react'
 import { useWallet } from '@/app/context/WalletContext'
+import type { Asset } from '@/app/context/WalletContext'
 
-export default function CreateIPToken() {
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [location, setLocation] = useState('')
-  const [documents, setDocuments] = useState<FileList | null>(null)
-  const [value, setValue] = useState('')
+export default function CreateAsset() {
   const router = useRouter()
-  const { toast } = useToast()
-  const { createAsset, uploadToIPFS } = useWallet()
+  const { isConnected, createAsset } = useWallet()
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    size: '',
+    value: '0.001',
+    image: '/placeholder.svg',
+    listed: false,
+    type: 'building' as const
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // Upload documents to IPFS
-      const ipfsHashes = []
-      if (documents) {
-        for (let i = 0; i < documents.length; i++) {
-          const hash = await uploadToIPFS(documents[i])
-          ipfsHashes.push(hash)
-        }
-      }
-
-      // Create asset on blockchain
       await createAsset({
-        title,
-        description,
-        location,
-        image: ipfsHashes[0], // Use first document as main image
-        value: parseFloat(value),
-        type: 'building', // You might want to add this to your form
-        size: '0', // You might want to add this to your form
-      })
-
-      toast({
-        title: "Asset Created",
-        description: "Your asset has been created on the blockchain.",
+        ...formData,
+        price: parseFloat(formData.value)
       })
       router.push('/profile')
     } catch (error) {
       console.error('Error creating asset:', error)
-      toast({
-        title: "Error",
-        description: "Failed to create asset. Please try again.",
-        variant: "destructive",
-      })
     }
+  }
+
+  if (!isConnected) {
+    router.push('/')
+    return null
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold">Create IP Token</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-2 top-2.5 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="pl-10"
-                  placeholder="e.g., New York, USA"
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="documents">Verification Documents</Label>
-              <div className="flex items-center space-x-2">
-                <Input
-                  id="documents"
-                  type="file"
-                  onChange={(e) => setDocuments(e.target.files)}
-                  multiple
-                  required
-                  className="flex-grow"
-                />
-                <Button type="button" variant="outline" size="icon">
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Upload any relevant documents to verify your IP (e.g., patents, copyrights, trademarks)
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="value">Estimated Value (ETH)</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-2 top-2.5 h-5 w-5 text-muted-foreground" />
-                <Input
-                  id="value"
-                  type="number"
-                  step="0.01"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  className="pl-10"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter>
-          <Button type="submit" className="w-full">Create Token</Button>
-        </CardFooter>
-      </Card>
+      <h1 className="text-3xl font-bold mb-8">Create New Asset</h1>
+      
+      <form onSubmit={handleSubmit} className="max-w-2xl">
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Title
+          </label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Description
+          </label>
+          <textarea
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            rows={4}
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Location
+          </label>
+          <input
+            type="text"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Size
+          </label>
+          <input
+            type="text"
+            value={formData.size}
+            onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            required
+          />
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Value (MATIC)
+          </label>
+          <input
+            type="number"
+            value={formData.value}
+            onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            required
+            min="0"
+            step="0.01"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+        >
+          Create Asset
+        </button>
+      </form>
     </div>
   )
 }

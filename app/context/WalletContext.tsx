@@ -1,124 +1,190 @@
 'use client'
 
-import React, { createContext, useState, useContext, useEffect } from 'react'
+import React, { createContext, useState, useContext } from 'react'
 import { ethers } from 'ethers'
-import contractABI from './RealEstateMarket.json' // You'll need to create this after compiling the contract
+import contractABI from './RealEstateMarket.json'
 
-const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
-const NETWORK_ID = process.env.NEXT_PUBLIC_NETWORK_ID
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL
-
-interface UserProfile {
-  name: string
-  email: string
-  bio: string
+// Add type declaration for ethereum
+declare global {
+  interface Window {
+    ethereum?: any
+  }
 }
 
-export interface RealEstateAsset {
+export interface Asset {
   id: number
   title: string
   description: string
   image: string
-  creator: string
-  owner: string
-  createdAt: string
-  listed: boolean
-  price?: number
-  value: number
-  type: 'land' | 'building' | 'house'
   location: string
   size: string
+  price?: number
+  listed: boolean
+  owner: string
+  creator: string
+  createdAt: string
+  type: 'building' | 'land' | 'retail'
 }
 
 interface WalletContextType {
   isConnected: boolean
   walletAddress: string | null
-  userProfile: UserProfile | null
-  userAssets: RealEstateAsset[]
-  connectWallet: () => void
+  userAssets: Asset[]
+  connectWallet: () => Promise<void>
   disconnectWallet: () => void
-  updateUserProfile: (profile: UserProfile) => void
-  listAssetForSale: (id: number, price: number) => void
-  unlistAsset: (id: number) => void
-  getAssetById: (id: number) => RealEstateAsset | undefined
   provider: ethers.providers.Web3Provider | null
   contract: ethers.Contract | null
-  uploadToIPFS: (file: File) => Promise<string>
-  createAsset: (asset: Omit<RealEstateAsset, 'id' | 'creator' | 'owner' | 'createdAt'>) => Promise<void>
+  createAsset: (asset: Omit<Asset, 'id' | 'creator' | 'owner' | 'createdAt'>) => Promise<void>
+  listAssetForSale: (id: number, price: number) => Promise<void>
   buyAsset: (id: number, price: number) => Promise<void>
 }
 
+const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS
+
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
 
-export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const DUMMY_ASSETS: Asset[] = [
+  {
+    id: 1,
+    title: "Modern Office Building",
+    description: "Prime commercial property in the business district with modern amenities",
+    image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=600",
+    location: "Downtown Business District",
+    size: "50,000 sq ft",
+    price: 0.001,
+    listed: true,
+    owner: "0x0000000000000000000000000000000000000000",
+    creator: "0x0000000000000000000000000000000000000000",
+    createdAt: new Date().toISOString(),
+    type: "building"
+  },
+  {
+    id: 2,
+    title: "Waterfront Development Land",
+    description: "Premium waterfront plot perfect for luxury development",
+    image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&h=600",
+    location: "Coastal District",
+    size: "2.5 acres",
+    price: 0.002,
+    listed: true,
+    owner: "0x0000000000000000000000000000000000000000",
+    creator: "0x0000000000000000000000000000000000000000",
+    createdAt: new Date().toISOString(),
+    type: "land"
+  },
+  {
+    id: 3,
+    title: "Industrial Warehouse Complex",
+    description: "Large industrial warehouse with loading docks and storage facilities",
+    image: "https://images.unsplash.com/photo-1565610222536-ef125c59da2e?w=800&h=600",
+    location: "Industrial Park",
+    size: "75,000 sq ft",
+    price: 0.0015,
+    listed: true,
+    owner: "0x0000000000000000000000000000000000000000",
+    creator: "0x0000000000000000000000000000000000000000",
+    createdAt: new Date().toISOString(),
+    type: "building"
+  },
+  {
+    id: 4,
+    title: "Residential Development Plot",
+    description: "Ready-to-develop land in growing residential area",
+    image: "https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=800&h=600",
+    location: "Suburban District",
+    size: "1.8 acres",
+    price: 0.0008,
+    listed: true,
+    owner: "0x0000000000000000000000000000000000000000",
+    creator: "0x0000000000000000000000000000000000000000",
+    createdAt: new Date().toISOString(),
+    type: "land"
+  },
+  {
+    id: 5,
+    title: "Luxury Retail Space",
+    description: "High-end retail property in premium shopping district",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&h=600",
+    location: "Shopping District",
+    size: "15,000 sq ft",
+    price: 0.0025,
+    listed: true,
+    owner: "0x0000000000000000000000000000000000000000",
+    creator: "0x0000000000000000000000000000000000000000",
+    createdAt: new Date().toISOString(),
+    type: "building"
+  }
+];
+
+// Add this interface near the top with other interfaces
+interface ContractEvent {
+  event: string;
+  args?: {
+    id?: {
+      toNumber: () => number;
+    };
+  };
+}
+
+export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false)
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [userAssets, setUserAssets] = useState<RealEstateAsset[]>([
-    { id: 1, title: "Downtown Apartment Building", description: "Modern apartment complex in the heart of the city", image: "/placeholder.svg?height=400&width=400", creator: "0x1234...5678", owner: "0x1234...5678", createdAt: "2023-06-15T10:30:00Z", listed: false, value: 500, type: 'building', location: "New York, NY", size: "10,000 sqft" },
-    { id: 2, title: "Beachfront Villa", description: "Luxurious villa with private beach access", image: "/placeholder.svg?height=400&width=400", creator: "0x1234...5678", owner: "0x1234...5678", createdAt: "2023-06-14T14:45:00Z", listed: false, value: 750, type: 'house', location: "Miami, FL", size: "5,000 sqft" },
-    { id: 3, title: "Commercial Land Plot", description: "Prime location for commercial development", image: "/placeholder.svg?height=400&width=400", creator: "0x1234...5678", owner: "0x1234...5678", createdAt: "2023-06-13T09:15:00Z", listed: true, price: 300, value: 300, type: 'land', location: "Austin, TX", size: "2 acres" },
-    { id: 4, title: "Mountain Cabin", description: "Cozy cabin with breathtaking mountain views", image: "/placeholder.svg?height=400&width=400", creator: "0x1234...5678", owner: "0x1234...5678", createdAt: "2023-06-12T16:20:00Z", listed: false, value: 200, type: 'house', location: "Aspen, CO", size: "2,000 sqft" },
-    { id: 5, title: "Urban Office Space", description: "Modern office space in a bustling business district", image: "/placeholder.svg?height=400&width=400", creator: "0x1234...5678", owner: "0x1234...5678", createdAt: "2023-06-11T11:00:00Z", listed: true, price: 450, value: 450, type: 'building', location: "Chicago, IL", size: "15,000 sqft" },
-    { id: 6, title: "Vineyard Estate", description: "Sprawling vineyard with main house and guest cottages", image: "/placeholder.svg?height=400&width=400", creator: "0x1234...5678", owner: "0x1234...5678", createdAt: "2023-06-10T13:30:00Z", listed: false, value: 1200, type: 'land', location: "Napa Valley, CA", size: "50 acres" }
-  ])
   const [provider, setProvider] = useState<ethers.providers.Web3Provider | null>(null)
   const [contract, setContract] = useState<ethers.Contract | null>(null)
+  const [userAssets, setUserAssets] = useState<Asset[]>([])
 
-  // Load user's assets from MongoDB when wallet is connected
-  useEffect(() => {
-    if (walletAddress) {
-      fetchUserAssets()
-    }
-  }, [walletAddress])
-
-  const fetchUserAssets = async () => {
+  const fetchUserAssets = async (address: string) => {
     try {
-      const response = await fetch(`/api/assets?owner=${walletAddress}`)
+      const response = await fetch(`/api/assets?owner=${address}`)
       const data = await response.json()
       if (data.success) {
-        setUserAssets(data.assets)
+        // Combine real assets with dummy ones
+        const realAssets = data.assets || []
+        setUserAssets([...DUMMY_ASSETS, ...realAssets])
       }
     } catch (error) {
       console.error('Error fetching assets:', error)
+      // If API fails, still show dummy assets
+      setUserAssets(DUMMY_ASSETS)
+    }
+  }
+
+  const switchToAmoyTestnet = async () => {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${Number(process.env.NEXT_PUBLIC_NETWORK_ID).toString(16)}` }],
+      })
+    } catch (switchError: any) {
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [
+            {
+              chainId: `0x${Number(process.env.NEXT_PUBLIC_NETWORK_ID).toString(16)}`,
+              chainName: 'Polygon Amoy Testnet',
+              nativeCurrency: {
+                name: 'MATIC',
+                symbol: 'MATIC',
+                decimals: 18,
+              },
+              rpcUrls: [process.env.NEXT_PUBLIC_RPC_URL!],
+              blockExplorerUrls: ['https://www.oklink.com/amoy'],
+            },
+          ],
+        })
+      }
     }
   }
 
   const connectWallet = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
-        // Request network switch to Amoy testnet
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${Number(NETWORK_ID).toString(16)}` }],
-          })
-        } catch (switchError: any) {
-          // If network doesn't exist, add it
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [
-                {
-                  chainId: `0x${Number(NETWORK_ID).toString(16)}`,
-                  chainName: 'Polygon Amoy Testnet',
-                  nativeCurrency: {
-                    name: 'MATIC',
-                    symbol: 'MATIC',
-                    decimals: 18,
-                  },
-                  rpcUrls: [RPC_URL],
-                  blockExplorerUrls: ['https://www.oklink.com/amoy'],
-                },
-              ],
-            })
-          }
-        }
-
+        await switchToAmoyTestnet()
         await window.ethereum.request({ method: 'eth_requestAccounts' })
         const provider = new ethers.providers.Web3Provider(window.ethereum)
         const signer = provider.getSigner()
-        const contract = new ethers.Contract(contractAddress!, contractABI, signer)
+        const contract = new ethers.Contract(contractAddress!, contractABI.abi, signer)
         
         setProvider(provider)
         setContract(contract)
@@ -126,13 +192,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const address = await signer.getAddress()
         setWalletAddress(address)
 
-        // Listen for network changes
-        window.ethereum.on('chainChanged', (chainId: string) => {
-          if (chainId !== `0x${Number(NETWORK_ID).toString(16)}`) {
-            disconnectWallet()
-          }
-        })
-
+        await fetchUserAssets(address)
       } catch (error) {
         console.error('Error connecting wallet:', error)
       }
@@ -142,106 +202,163 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const disconnectWallet = () => {
     setIsConnected(false)
     setWalletAddress(null)
-    setUserProfile(null)
+    setProvider(null)
+    setContract(null)
+    setUserAssets([])
   }
 
-  const updateUserProfile = (profile: UserProfile) => {
-    setUserProfile(profile)
-  }
-
-  const listAssetForSale = (id: number, price: number) => {
-    setUserAssets(userAssets.map(asset => 
-      asset.id === id ? { ...asset, listed: true, price } : asset
-    ))
-  }
-
-  const unlistAsset = (id: number) => {
-    setUserAssets(userAssets.map(asset => 
-      asset.id === id ? { ...asset, listed: false, price: undefined } : asset
-    ))
-  }
-
-  const getAssetById = (id: number) => {
-    return userAssets.find(asset => asset.id === id)
-  }
-
-  const uploadToIPFS = async (file: File) => {
-    try {
-      return `asset_${Date.now()}`
-    } catch (error) {
-      console.error('Error uploading file:', error)
-      throw error
+  const createAsset = async (asset: Omit<Asset, 'id' | 'creator' | 'owner' | 'createdAt'>) => {
+    if (!contract || !walletAddress) {
+      throw new Error('Wallet not connected')
     }
-  }
-
-  const createAsset = async (asset: Omit<RealEstateAsset, 'id' | 'creator' | 'owner' | 'createdAt'>) => {
-    if (!contract || !walletAddress) return
 
     try {
-      const assetHash = `asset_${Date.now()}`
-
       const tx = await contract.createAsset(
         asset.title,
         asset.description,
         asset.location,
-        assetHash
+        asset.image,
+        { gasLimit: 500000 }
       )
-      await tx.wait()
 
+      const receipt = await tx.wait()
+      if (!receipt.status) {
+        throw new Error('Transaction failed')
+      }
+
+      // Update this line with proper typing
+      const event = receipt.events?.find((e: ContractEvent) => e.event === 'AssetCreated')
+      const assetId = event?.args?.id?.toNumber() || Date.now()
+
+      // Prepare asset data
+      const newAsset = {
+        ...asset,
+        id: assetId,
+        creator: walletAddress,
+        owner: walletAddress,
+        createdAt: new Date().toISOString(),
+        listed: false
+      }
+
+      // Save to MongoDB
       const response = await fetch('/api/assets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          asset: {
-            ...asset,
-            ipfsHash: assetHash,
-          },
+          asset: newAsset,
           walletAddress
         })
       })
 
       const data = await response.json()
-      if (data.success) {
-        fetchUserAssets()
+      if (!data.success) {
+        throw new Error('Failed to save asset data')
       }
 
-      return data
-    } catch (error) {
+      // Update local state
+      setUserAssets(prevAssets => [...prevAssets, newAsset])
+    } catch (error: any) {
       console.error('Error creating asset:', error)
+      throw new Error('Failed to create asset: ' + (error.message || 'Unknown error'))
+    }
+  }
+
+  const listAssetForSale = async (id: number, price: number) => {
+    if (!contract || !walletAddress) {
+      throw new Error('Wallet not connected')
+    }
+
+    try {
+      const tx = await contract.listAsset(id, ethers.utils.parseEther(price.toString()))
+      await tx.wait()
+
+      setUserAssets(prevAssets => 
+        prevAssets.map(asset => 
+          asset.id === id 
+            ? { ...asset, listed: true, price } 
+            : asset
+        )
+      )
+    } catch (error) {
+      console.error('Error listing asset:', error)
       throw error
     }
   }
 
-  const buyAsset = async (id: number, price: number) => {
-    if (!contract) return
+  const buyAsset = async (id: number, price: number): Promise<void> => {
+    if (!contract || !walletAddress) {
+      throw new Error('Wallet not connected')
+    }
+
     try {
+      // Convert price to Wei and add some buffer for gas
+      const priceInWei = ethers.utils.parseEther((price * 1.1).toString()) // Add 10% buffer
+
+      // First check if we have enough balance
+      const balance = await provider?.getBalance(walletAddress)
+      if (balance && balance.lt(priceInWei)) {
+        throw new Error('Insufficient balance')
+      }
+
+      // Execute the purchase
       const tx = await contract.buyAsset(id, {
-        value: ethers.utils.parseEther(price.toString())
+        value: priceInWei,
+        gasLimit: 500000 // Increased gas limit
       })
-      await tx.wait()
-      // Update local state
-    } catch (error) {
-      console.error('Error buying asset:', error)
-      throw error
+
+      // Wait for confirmation
+      const receipt = await tx.wait()
+      if (!receipt.status) {
+        throw new Error('Transaction failed')
+      }
+
+      // Update local state after successful purchase
+      setUserAssets(prevAssets => {
+        const boughtAsset = DUMMY_ASSETS.find(a => a.id === id)
+        if (!boughtAsset) return prevAssets
+
+        const newAsset = {
+          ...boughtAsset,
+          owner: walletAddress,
+          listed: false,
+          price: price
+        }
+
+        // Add to MongoDB
+        fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            asset: newAsset,
+            walletAddress
+          })
+        }).catch(console.error)
+
+        return [...prevAssets, newAsset]
+      })
+    } catch (error: any) {
+      console.error('Error details:', error)
+      if (error.data?.message) {
+        throw new Error(error.data.message)
+      } else if (error.message.includes('user rejected')) {
+        throw new Error('Transaction rejected by user')
+      } else {
+        throw new Error('Failed to buy asset: ' + (error.message || 'Unknown error'))
+      }
     }
   }
 
   return (
-    <WalletContext.Provider value={{ 
-      isConnected, 
-      walletAddress, 
-      userProfile, 
+    <WalletContext.Provider value={{
+      isConnected,
+      walletAddress,
       userAssets,
-      connectWallet, 
-      disconnectWallet, 
-      updateUserProfile,
-      listAssetForSale,
-      unlistAsset,
-      getAssetById,
+      connectWallet,
+      disconnectWallet,
       provider,
       contract,
-      uploadToIPFS,
       createAsset,
+      listAssetForSale,
       buyAsset
     }}>
       {children}

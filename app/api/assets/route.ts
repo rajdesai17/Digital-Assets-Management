@@ -14,8 +14,9 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({ success: true, id: result.insertedId })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  } catch (error: any) {
+    const errorMessage = error?.message || 'An unknown error occurred'
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 }
 
@@ -31,7 +32,8 @@ export async function GET(req: Request) {
       .toArray()
 
     return NextResponse.json({ success: true, assets })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  } catch (error: any) {
+    const errorMessage = error?.message || 'An unknown error occurred'
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 } 

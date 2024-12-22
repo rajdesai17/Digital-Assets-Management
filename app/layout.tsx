@@ -1,13 +1,11 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
+import type { Metadata } from 'next'
 import { WalletProvider } from './context/WalletContext'
-
-const inter = Inter({ subsets: ['latin'] })
+import Header from '@/components/Header'
 
 export const metadata: Metadata = {
-  title: 'Real Estate NFT Marketplace',
-  description: 'Trade real estate assets as NFTs',
+  title: 'BLCassets',
+  description: 'Real Estate NFT Marketplace',
 }
 
 export default function RootLayout({
@@ -17,9 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <WalletProvider>
-          {children}
+          <Header />
+          <main className="container mx-auto px-4 py-8">
+            {children}
+          </main>
         </WalletProvider>
       </body>
     </html>

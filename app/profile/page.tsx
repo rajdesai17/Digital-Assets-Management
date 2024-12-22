@@ -1,228 +1,160 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
 import { useWallet } from '@/app/context/WalletContext'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DollarSign, Tag, Briefcase, ShoppingBag, BarChart2, Zap, ExternalLink, PlusCircle, MapPin, Ruler } from 'lucide-react'
-import type { RealEstateAsset } from '@/app/context/WalletContext'
+import type { Asset } from '@/app/context/WalletContext'
+import { DUMMY_ASSETS } from '@/app/context/WalletContext'
 
-interface AssetCardProps {
-  asset: RealEstateAsset;
-  showListingOptions?: boolean;
-}
-
-export default function UserDashboard() {
-  const { userProfile, userAssets, listAssetForSale, unlistAsset, isConnected } = useWallet()
-  const [prices, setPrices] = useState<{ [key: number]: string }>({})
+export default function Profile() {
+  const { isConnected, userAssets, walletAddress } = useWallet()
   const router = useRouter()
-  const { toast } = useToast()
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('created')
 
-  if (!isConnected) {
-    router.push('/')
-    return null
-  }
-
-  const createdAssets = userAssets.filter(asset => asset.creator === userProfile?.name)
-  const ownedAssets = userAssets.filter(asset => asset.owner === userProfile?.name)
-  const listedAssets = userAssets.filter(asset => asset.listed)
-
-  const totalValue = ownedAssets.reduce((sum, asset) => sum + asset.value, 0)
-
-  const handlePriceChange = (id: number, price: string) => {
-    setPrices({ ...prices, [id]: price })
-  }
-
-  const handleListForSale = (id: number) => {
-    const price = parseFloat(prices[id])
-    if (isNaN(price) || price <= 0) {
-      toast({
-        title: "Invalid Price",
-        description: "Please enter a valid price greater than 0.",
-        variant: "destructive",
-      })
+  useEffect(() => {
+    if (!isConnected) {
+      setError('Please connect your wallet to view your profile')
+      router.push('/')
       return
     }
-    listAssetForSale(id, price)
-    toast({
-      title: "Asset Listed",
-      description: "Your real estate asset has been listed for sale in the marketplace.",
-    })
-  }
+  }, [isConnected, router])
 
-  const handleUnlist = (id: number) => {
-    unlistAsset(id)
-    toast({
-      title: "Asset Unlisted",
-      description: "Your real estate asset has been removed from the marketplace.",
-    })
-  }
+  if (!isConnected) return null
 
-  const AssetCard = ({ asset, showListingOptions = false }: AssetCardProps) => (
-    <Card key={asset.id} className="flex flex-col">
-      <CardHeader>
-        <CardTitle>{asset.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex-grow">
-        <Image
-          src={asset.image}
-          alt={asset.title}
-          width={400}
-          height={400}
-          className="w-full h-48 object-cover rounded-md mb-4"
-        />
-        <p className="text-muted-foreground mb-2">{asset.description}</p>
-        <div className="flex items-center gap-2 mb-2">
-          <MapPin className="h-4 w-4" />
-          <span>{asset.location}</span>
-        </div>
-        <div className="flex items-center gap-2 mb-2">
-          <Ruler className="h-4 w-4" />
-          <span>{asset.size}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4" />
-          <span>Value: {asset.value} ETH</span>
-        </div>
-      </CardContent>
-      <CardFooter className="flex flex-col items-start gap-2">
-        {asset.listed ? (
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              <span>Listed for {asset.price} ETH</span>
-            </div>
-            {showListingOptions && (
-              <Button variant="outline" onClick={() => handleUnlist(asset.id)}>
-                Unlist
-              </Button>
-            )}
-          </div>
-        ) : (
-          showListingOptions && (
-            <>
-              <div className="flex items-center gap-2 w-full">
-                <DollarSign className="h-4 w-4" />
-                <Input
-                  type="number"
-                  placeholder="Price in ETH"
-                  value={prices[asset.id] || ''}
-                  onChange={(e) => handlePriceChange(asset.id, e.target.value)}
-                  className="flex-grow"
-                />
-              </div>
-              <Button onClick={() => handleListForSale(asset.id)} className="w-full">
-                List for Sale
-              </Button>
-            </>
-          )
-        )}
-        <Link href={`/assets/${asset.id}`} className="w-full">
-          <Button variant="secondary" className="w-full">
-            View Details
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </Button>
-        </Link>
-      </CardFooter>
-    </Card>
+  const createdAssets = userAssets.filter(asset => asset.creator === walletAddress)
+  const ownedAssets = userAssets.filter(asset => 
+    asset.owner === walletAddress && !asset.listed
+  )
+  const listedAssets = DUMMY_ASSETS.filter((asset: Asset) => 
+    asset.listed && asset.owner !== walletAddress
+  )
+
+  const portfolioValue = ownedAssets.reduce((sum, asset) => 
+    sum + (asset.price || 0), 0
   )
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Your Dashboard</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{userAssets.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Created Assets</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{createdAssets.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Owned Assets</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{ownedAssets.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Listed Assets</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{listedAssets.length}</div>
-          </CardContent></Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Portfolio Value</CardTitle>
-            <BarChart2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalValue.toFixed(2)} ETH</div>
-          </CardContent>
-        </Card>
+      <h1 className="text-3xl font-bold mb-6">Your Dashboard</h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-bold mb-2">Total Assets</h3>
+          <p className="text-3xl font-bold">{ownedAssets.length + listedAssets.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-bold mb-2">Created Assets</h3>
+          <p className="text-3xl font-bold">{createdAssets.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-bold mb-2">Owned Assets</h3>
+          <p className="text-3xl font-bold">{ownedAssets.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-bold mb-2">Listed Assets</h3>
+          <p className="text-3xl font-bold">{listedAssets.length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <h3 className="text-lg font-bold mb-2">Portfolio Value</h3>
+          <p className="text-3xl font-bold">
+            {portfolioValue.toFixed(3)} MATIC
+          </p>
+        </div>
       </div>
 
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Your Real Estate Assets</h2>
-        <Link href="/create">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create New Asset
-          </Button>
-        </Link>
-      </div>
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold mb-4">Your Real Estate Assets</h2>
+        
+        <div className="flex gap-4 mb-6">
+          <button
+            onClick={() => setActiveTab('created')}
+            className={`px-4 py-2 rounded-lg ${
+              activeTab === 'created' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Created Assets
+          </button>
+          <button
+            onClick={() => setActiveTab('owned')}
+            className={`px-4 py-2 rounded-lg ${
+              activeTab === 'owned' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Owned Assets
+          </button>
+          <button
+            onClick={() => setActiveTab('listed')}
+            className={`px-4 py-2 rounded-lg ${
+              activeTab === 'listed' 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Listed Assets
+          </button>
+        </div>
 
-      <Tabs defaultValue="created" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="created">Created Assets</TabsTrigger>
-          <TabsTrigger value="owned">Owned Assets</TabsTrigger>
-          <TabsTrigger value="listed">Listed Assets</TabsTrigger>
-        </TabsList>
-        <TabsContent value="created" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {createdAssets.map(asset => (
-              <AssetCard key={asset.id} asset={asset} showListingOptions={true} />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="owned" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ownedAssets.map(asset => (
-              <AssetCard key={asset.id} asset={asset} showListingOptions={true} />
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="listed" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listedAssets.map(asset => (
-              <AssetCard key={asset.id} asset={asset} showListingOptions={true} />
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {activeTab === 'created' && createdAssets.map((asset) => (
+            <AssetCard key={asset.id} asset={asset} type="created" />
+          ))}
+          {activeTab === 'owned' && ownedAssets.map((asset) => (
+            <AssetCard key={asset.id} asset={asset} type="owned" />
+          ))}
+          {activeTab === 'listed' && listedAssets.map((asset) => (
+            <AssetCard key={asset.id} asset={asset} type="listed" />
+          ))}
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link href="/create">
+            <button className="px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600">
+              Create New Asset
+            </button>
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
+
+interface AssetCardProps {
+  asset: Asset
+  type: 'created' | 'owned' | 'listed'
+}
+
+const AssetCard = ({ asset, type }: AssetCardProps) => (
+  <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+    <Image
+      src={asset.image || '/placeholder.svg'}
+      alt={asset.title}
+      width={400}
+      height={300}
+      className="w-full h-48 object-cover"
+    />
+    <div className="p-4">
+      <h3 className="text-xl font-bold mb-2">{asset.title}</h3>
+      <p className="text-gray-600 mb-4">{asset.description}</p>
+      
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-gray-500">Location: {asset.location}</span>
+        <span className="text-sm text-gray-500">Size: {asset.size}</span>
+      </div>
+      
+      <div className="flex items-center justify-between">
+        <span className="font-bold text-lg">{asset.price} MATIC</span>
+        {type === 'listed' && (
+          <span className="text-green-500 font-medium">Listed</span>
+        )}
+      </div>
+    </div>
+  </div>
+)
 

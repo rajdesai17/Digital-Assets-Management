@@ -1,106 +1,120 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
-import { ShoppingCart, Heart, Share2, Tag, MapPin, Ruler } from 'lucide-react'
 import { useWallet } from '@/app/context/WalletContext'
+import type { Asset } from '@/app/context/WalletContext'
+import { DUMMY_ASSETS } from '@/app/context/WalletContext'
+import { useToast } from "@/hooks/use-toast"
 
 export default function Marketplace() {
-  const { userAssets } = useWallet()
-  const [assets, setAssets] = useState(userAssets.filter(asset => asset.listed))
+  const { buyAsset, walletAddress } = useWallet()
   const { toast } = useToast()
+  const [assets, setAssets] = useState<Asset[]>(
+    DUMMY_ASSETS.filter(asset => 
+      asset.listed && asset.owner !== walletAddress
+    )
+  )
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleBuy = async (id: number, price: number) => {
+  const handleBuy = async (asset: Asset) => {
     try {
-      await buyAsset(id, price)
-      toast({
-        title: "Success",
-        description: "Asset purchased successfully!",
-      })
-      // Refresh assets
-      const response = await fetch('/api/assets')
-      const data = await response.json()
-      if (data.success) {
-        setAssets(data.assets.filter(asset => asset.listed))
+      setError(null)
+      setIsLoading(true)
+
+      if (!asset.listed) {
+        setError('This asset is not listed for sale')
+        return
       }
-    } catch (error) {
+
+      await buyAsset(asset.id, asset.price!)
+      
+      // Remove bought asset from marketplace
+      setAssets(prevAssets => prevAssets.filter(a => a.id !== asset.id))
+      
+      toast({
+        title: "Success!",
+        description: "Asset purchased successfully. Check your profile to view it.",
+      })
+    } catch (error: any) {
       console.error('Error buying asset:', error)
+      setError(error.message || 'Failed to buy asset')
       toast({
         title: "Error",
-        description: "Failed to purchase asset. Please try again.",
+        description: error.message || 'Failed to buy asset',
         variant: "destructive"
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleLike = (id: number) => {
-    toast({
-      title: "Asset Liked",
-      description: "This asset has been added to your favorites.",
-    })
-  }
+  useEffect(() => {
+    const loadAssets = async () => {
+      try {
+        setIsLoading(true)
+        // Show dummy assets immediately
+        setAssets(DUMMY_ASSETS.filter(asset => asset.listed))
+      } catch (error) {
+        console.error('Error loading assets:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const handleShare = (id: number) => {
-    toast({
-      title: "Share Link Copied",
-      description: "The share link has been copied to your clipboard.",
-    })
-  }
+    loadAssets()
+  }, [])
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Real Estate Marketplace</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {assets.map((asset) => (
-          <Card key={asset.id} className="flex flex-col">
-            <CardHeader>
-              <CardTitle>{asset.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow">
+      
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="text-center py-8">Loading assets...</div>
+      ) : assets.length === 0 ? (
+        <div className="text-center py-8">No assets listed for sale</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {assets.map((asset: Asset) => (
+            <div key={asset.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
               <Image
-                src={asset.image}
+                src={asset.image || '/placeholder.svg'}
                 alt={asset.title}
                 width={400}
-                height={400}
-                className="w-full h-48 object-cover rounded-md mb-4"
+                height={300}
+                className="w-full h-48 object-cover"
               />
-              <p className="text-muted-foreground mb-2">{asset.description}</p>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  <span className="font-bold">{asset.price} ETH</span>
+              <div className="p-4">
+                <h3 className="text-xl font-bold mb-2">{asset.title}</h3>
+                <p className="text-gray-600 mb-4">{asset.description}</p>
+                
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">Location: {asset.location}</span>
+                  <span className="text-sm text-gray-500">Size: {asset.size}</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Owner: {asset.owner}</p>
+                
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-lg">{asset.price} MATIC</span>
+                  <button 
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    onClick={() => handleBuy(asset)}
+                    disabled={asset.owner === walletAddress}
+                  >
+                    {asset.owner === walletAddress ? 'Owned' : 'Buy Now'}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 mb-2">
-                <MapPin className="h-4 w-4" />
-                <span>{asset.location}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Ruler className="h-4 w-4" />
-                <span>{asset.size}</span>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button onClick={() => handleBuy(asset.id, asset.price)}>
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                Buy Now
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="icon" onClick={() => handleLike(asset.id)}>
-                  <Heart className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => handleShare(asset.id)}>
-                  <Share2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
